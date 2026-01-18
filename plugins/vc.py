@@ -6,7 +6,7 @@ from pytgcalls import PyTgCalls
 from pytgcalls.types import AudioPiped
 from gtts import gTTS
 
-from main import userbots, pytgcalls_clients
+from shared import userbots, pytgcalls_clients
 from config import OWNER_ID
 
 def sm(x):
