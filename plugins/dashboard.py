@@ -31,10 +31,10 @@ async def dashboard(client, message):
 
     await message.reply_text(text, reply_markup=buttons)
 
-# ✅ ONLY handle dashboard + manager callbacks here
+# ✅ ONLY handle dashboard + manager callbacks here (VC removed)
 @Client.on_callback_query(
     filters.user(OWNER_ID)
-    & filters.regex("^(home|mod_gc|mod_dm|mod_manager|sess_add_help|sess_restart|mod_vc)$")
+    & filters.regex("^(home|mod_gc|mod_dm|mod_manager|sess_add_help|sess_restart)$")
 )
 async def callback_handler(client, query):
     data = query.data
@@ -87,7 +87,3 @@ async def callback_handler(client, query):
 
     elif data == "sess_restart":
         await query.message.edit_text(sm("restart feature disabled on heroku"))
-
-    # ✅ IMPORTANT: VC ka control vc.py ko de do
-    elif data == "mod_vc":
-        return
