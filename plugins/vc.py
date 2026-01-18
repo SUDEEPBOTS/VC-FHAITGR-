@@ -29,7 +29,7 @@ def get_duration(file_path):
         )
         return float(result.stdout)
     except:
-        return 5.0
+        return 10.0  # ✅ fallback (heroku me ffprobe missing ho sakta)
 
 async def switch_to_silent(chat_id):
     for _, vc in pytgcalls_clients.items():
@@ -95,26 +95,35 @@ async def ask_for_file(client, query):
     await query.answer()
     user_state[query.from_user.id] = "waiting_file"
     await query.message.edit_text(
-        f"**{sm('FILE PLAY MODE')}**\n\n{sm('send the audio file you want to play.')}",
+        f"**{sm('FILE PLAY MODE')}**\n\n{sm('send the audio/voice/mp3 file you want to play.')}",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton(sm("cancel"), callback_data="cancel_action")]
         ])
     )
 
-@Client.on_message(filters.audio & filters.user(OWNER_ID))
+# ✅ ACCEPT: audio + voice + document
+@Client.on_message((filters.audio | filters.voice | filters.document) & filters.user(OWNER_ID))
 async def handle_audio_input(client, message):
     user_id = message.from_user.id
-    if user_state.get(user_id) == "waiting_file":
-        status = await message.reply_text(sm("downloading file..."))
-        await message.download(user_file)
-        user_state[user_id] = "waiting_loop_count"
 
-        await status.edit_text(
-            f"**{sm('file received!')}**\n{sm('how many times to loop?')}",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton(sm("cancel"), callback_data="cancel_action")]
-            ])
-        )
+    if user_state.get(user_id) != "waiting_file":
+        return
+
+    status = await message.reply_text("⬇️ Downloading file...")
+
+    try:
+        file_path = await message.download(file_name=user_file)
+    except Exception as e:
+        return await status.edit_text(f"❌ Download failed: {e}")
+
+    user_state[user_id] = "waiting_loop_count"
+
+    await status.edit_text(
+        f"✅ File received!\n\n📂 Saved as: `{file_path}`\n\n🔁 Send loop count number (example: 5)",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("CANCEL", callback_data="cancel_action")]
+        ])
+    )
 
 @Client.on_message(filters.text & filters.user(OWNER_ID))
 async def handle_text_input(client, message):
@@ -124,11 +133,13 @@ async def handle_text_input(client, message):
 
     global stop_loop_flag
 
+    # ✅ TTS Handler
     if state == "tts_mode":
         text = message.text
         status = await message.reply_text(sm(f"speaking: {text}"))
 
-        tts = gTTS(text=text, lang='en')
+        # ✅ Better voice (less robot)
+        tts = gTTS(text=text, lang="en", tld="co.in", slow=False)
         tts.save(tts_file)
 
         for _, vc in pytgcalls_clients.items():
@@ -137,24 +148,25 @@ async def handle_text_input(client, message):
             except:
                 pass
 
-        await asyncio.sleep((len(text.split()) / 2.5) + 1)
+        await asyncio.sleep((len(text.split()) / 2.5) + 2)
         await switch_to_silent(chat_id)
         await status.edit_text(sm("✅ done."))
         return
 
+    # ✅ Loop Count Handler
     if state == "waiting_loop_count":
         try:
-            loop_count = int(message.text)
+            loop_count = int(message.text.strip())
         except:
-            return await message.reply_text(sm("send a valid number."))
+            return await message.reply_text("❌ Send only number like: 3")
 
         stop_loop_flag = False
         user_state[user_id] = None
 
         status = await message.reply_text(
-            sm(f"playing audio {loop_count} times..."),
+            f"▶️ Playing audio {loop_count} times...",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton(sm("stop playback"), callback_data="stop_loop")]
+                [InlineKeyboardButton("❌ STOP PLAYBACK", callback_data="stop_loop")]
             ])
         )
 
@@ -162,7 +174,7 @@ async def handle_text_input(client, message):
 
         for i in range(loop_count):
             if stop_loop_flag:
-                await status.edit_text(sm("🛑 stopped."))
+                await status.edit_text("🛑 Playback stopped.")
                 break
 
             for _, vc in pytgcalls_clients.items():
@@ -171,27 +183,27 @@ async def handle_text_input(client, message):
                 except:
                     pass
 
-            await status.edit_text(sm(f"playing loop: {i+1}/{loop_count}"))
+            await status.edit_text(f"🔁 Playing loop: {i+1}/{loop_count}")
             await asyncio.sleep(duration)
 
         await switch_to_silent(chat_id)
         if not stop_loop_flag:
-            await status.edit_text(sm("✅ finished. silent loop resumed."))
+            await status.edit_text("✅ Playback finished. Silent loop resumed.")
 
 @Client.on_callback_query(filters.regex("^cancel_action$") & filters.user(OWNER_ID))
 async def cancel_handler(client, query):
     await query.answer()
     user_state[query.from_user.id] = None
     await query.message.edit_text(
-        sm("action cancelled."),
+        "✅ Cancelled.",
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton(sm("back"), callback_data="mod_vc")]
+            [InlineKeyboardButton("BACK", callback_data="mod_vc")]
         ])
     )
 
 @Client.on_callback_query(filters.regex("^stop_loop$") & filters.user(OWNER_ID))
 async def stop_loop_handler(client, query):
-    await query.answer(sm("stopping..."))
+    await query.answer("stopping...")
     global stop_loop_flag
     stop_loop_flag = True
     await switch_to_silent(query.message.chat.id)
@@ -204,4 +216,4 @@ async def leave_vc_handler(client, query):
             await vc.leave_group_call(query.message.chat.id)
         except:
             pass
-    await query.message.edit_text(sm("disconnected all bots."))
+    await query.message.edit_text("✅ Disconnected all bots.")
