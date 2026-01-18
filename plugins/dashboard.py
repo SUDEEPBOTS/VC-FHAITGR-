@@ -3,7 +3,6 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from config import OWNER_ID
 from main import userbots
 
-# ✅ simple text formatter (utils sm removed)
 def sm(text: str) -> str:
     return str(text).upper()
 
@@ -32,11 +31,13 @@ async def dashboard(client, message):
 
     await message.reply_text(text, reply_markup=buttons)
 
-@Client.on_callback_query(filters.user(OWNER_ID))
+# ✅ ONLY handle dashboard + manager callbacks here
+@Client.on_callback_query(
+    filters.user(OWNER_ID)
+    & filters.regex("^(home|mod_gc|mod_dm|mod_manager|sess_add_help|sess_restart|mod_vc)$")
+)
 async def callback_handler(client, query):
     data = query.data
-
-    # ✅ MUST: answer callback
     await query.answer()
 
     if data == "home":
@@ -71,7 +72,6 @@ async def callback_handler(client, query):
             ])
         )
 
-    # ✅ Add Session HELP
     elif data == "sess_add_help":
         await query.message.edit_text(
             f"**{sm('add session')}**\n\n"
@@ -86,10 +86,8 @@ async def callback_handler(client, query):
         )
 
     elif data == "sess_restart":
-        await query.message.edit_text(sm("restarting..."))
-        # Heroku pe direct restart command nahi hota normally
-        # tu isko simple message hi rakho
         await query.message.edit_text(sm("restart feature disabled on heroku"))
 
+    # ✅ IMPORTANT: VC ka control vc.py ko de do
     elif data == "mod_vc":
-        pass
+        return
