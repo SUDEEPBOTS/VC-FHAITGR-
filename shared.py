@@ -1,0 +1,2 @@
+userbots = []
+pytgcalls_clients = {}
