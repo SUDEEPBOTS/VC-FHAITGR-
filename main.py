@@ -3,7 +3,6 @@ from pyrogram import Client, idle
 from config import API_ID, API_HASH, BOT_TOKEN
 from database.mongo import get_all_sessions
 
-# global lists
 userbots = []
 pytgcalls_clients = {}
 
@@ -43,9 +42,10 @@ async def start_network():
 
     print(f"--- network ready: {len(userbots)} bots active ---")
 
-    # ✅ IMPORTANT: idle is not awaited
-    idle()
+    # ✅ YOUR PYROGRAM NEEDS AWAIT IDLE
+    await idle()
 
+    # cleanup
     await bot.stop()
     for ub in userbots:
         await ub.stop()
